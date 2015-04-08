@@ -7,22 +7,24 @@ require 'net/http'
 require 'json'
 require 'launchy'
 
+# STATIC VARIABLES
+NEW_FILE_URI      = URI('http://localhost:2345/index.html')  # default Apache server
+DATABASE_URI      = URI('http://localhost:3000/db.json')     # mock server with JSON get data
+DATABASE_POST_URI = URI('http://localhost:3000/videos')      # mock post server
 
-new_file_uri = URI('http://localhost:2345/index.html')        # default Apache server
-database_uri = URI('http://localhost:3000/db.json')  # mock server with JSON get data
-database_post_uri = URI('http://localhost:3000/users')        # mock post server
+# GET HTTP RESPONSE
+new_file = Net::HTTP.get_response(NEW_FILE_URI)
+database = Net::HTTP.get_response(DATABASE_URI)
 
-# get HTTP responses
-new_file = Net::HTTP.get_response(new_file_uri)
-database = Net::HTTP.get_response(database_uri)
-
-# initialize filenames
+# INITIALIZE FILENAMES
 new_file_name, new_file_url = ""
-new_file_array = new_file.body.split(' ')
+new_file_array              = new_file.body.split(' ')
 
 
+# SEPARATE FILE NAME AND URL
 if new_file_array.count > 1 
-  # if string is separated between URL and filename, use this conditions
+  # if string is separated between URL and filename, use these conditions
+  # for example www.google.com/SWKJER video.mp4
   if new_file_array[0].include?('www')
     new_file_name  = new_file_array[1]
     new_file_url = new_file_array[0]
@@ -33,23 +35,27 @@ if new_file_array.count > 1
 else
   # if string is one word and filename is in the url,
   # these lines separate the url and filename and assigns it to the new_file_name and new_file_url variable
+  # for example www.google.com/video.mp4
   new_file_name = new_file_array[ (new_file_array.rindex('/') + 1)..new_file_array.length ]
   new_file_url = new_file_array[ 0..new_file_array.rindex('/') ]
 end
 
 
-while 1 # run infinite loop to check updates from incoming server
+# RUN INFINITE LOOP TO CHECK UPDATES FROM SERVER
+while 1 
   # compare with file_name with database
   result =  JSON.parse(database.body)
   count = 0
+
+  # iterate over the JSON and check every file name and find a match
+  # if no results are found, post the data into the remote database
   while count < result.count
-    # if the file_name is not in the database, store the video in the database
     if new_file_name != result[count]["name"]
-      res = Net::HTTP.post_form(database_post_uri, 'filename' => new_file_name, 'video' => new_file_url)
+      res = Net::HTTP.post_form(DATABASE_POST_URI, 'filename' => new_file_name, 'video' => new_file_url)
     end
     count = count + 1
   end
 end
 
-# finally play the video
+# LAUNCH VIDEO
 Launchy.open(database_uri)
